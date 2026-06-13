@@ -6,6 +6,7 @@
 import sys, os, argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backtest.arbitrage import run_pair, analyze_all, PAIRS
+from monitor import monitor_all
 
 
 def arb(args):
@@ -41,10 +42,24 @@ def main():
     ap.add_argument('--sl-z', type=float, default=3.0)
     
     sub.add_parser('list', help='分析所有品种对')
+    mp = sub.add_parser('monitor', help='实时行情监控')
+    mp.add_argument('--pair', default=None, help='品种对: RB-HC, SC-MA, Y-P')
+    mp.add_argument('--local', action='store_true', help='用本地缓存(不联网)')
+    mp.add_argument('--notify', action='store_true', help='有信号时通知')
     
     args = p.parse_args()
     if args.cmd == 'arb': arb(args)
     elif args.cmd == 'list': lst(args)
+    elif args.cmd == 'monitor':
+        if args.pair:
+            # 单品种监控
+            from monitor import check_pair, PAIR_CONFIG
+            cfg = PAIR_CONFIG[args.pair]
+            r = check_pair(args.pair, cfg, use_live=not args.local)
+            from monitor import print_result
+            print_result(r)
+        else:
+            monitor_all(use_live=not args.local, notify=args.notify)
     else: p.print_help()
 
 
