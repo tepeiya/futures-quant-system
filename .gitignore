@@ -1,0 +1,15 @@
+# 数据文件（每次可重新下载）
+/tmp/
+*.csv
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# 图表输出
+*.png
+
+# 系统文件
+.DS_Store
