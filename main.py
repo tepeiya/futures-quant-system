@@ -47,19 +47,47 @@ def main():
     mp.add_argument('--local', action='store_true', help='用本地缓存(不联网)')
     mp.add_argument('--notify', action='store_true', help='有信号时通知')
     
+    tp = sub.add_parser('trade', help='配对交易引擎')
+    tp.add_argument('--pair', default='RB-HC')
+    tp.add_argument('--mode', default='signal', choices=['signal','trade','settle'])
+    tp.add_argument('--execute', action='store_true', help='实盘执行')
+    
     args = p.parse_args()
     if args.cmd == 'arb': arb(args)
     elif args.cmd == 'list': lst(args)
     elif args.cmd == 'monitor':
         if args.pair:
-            # 单品种监控
-            from monitor import check_pair, PAIR_CONFIG
+            from monitor import check_pair, PAIR_CONFIG, print_result
             cfg = PAIR_CONFIG[args.pair]
             r = check_pair(args.pair, cfg, use_live=not args.local)
-            from monitor import print_result
             print_result(r)
         else:
             monitor_all(use_live=not args.local, notify=args.notify)
+    
+    elif args.cmd == 'trade':
+        from engine.pair_trader import PAIR_CONFIG, analyze, execute_trade, load_position
+        cfg = PAIR_CONFIG[args.pair]
+        if args.mode == 'signal':
+            result = analyze(args.pair, cfg)
+            if result:
+                print(f"\n{'='*45}")
+                print(f"  {result['name']} ({args.pair})")
+                print(f"  时间: {result['timestamp'][:19]}")
+                print(f"{'='*45}")
+                print(f"  {result['a']}: ¥{result['price_a']:.2f}")
+                print(f"  {result['b']}: ¥{result['price_b']:.2f}")
+                print(f"  价差: {result['spread']:>+8.2f}  |  Z值: {result['z_score']:>+5.2f}σ")
+                print(f"  {'─'*45}")
+                for s in result['signals']:
+                    tag = {'ENTER':'🟢','EXIT':'✅','STOP_LOSS':'🛑','REVERSE':'🔄','HOLD':'⏳','WAIT':'⏳'}.get(s['type'],'📌')
+                    print(f"  {tag} {s['action']}: {s['reason']}")
+                print()
+        elif args.mode == 'trade':
+            execute_trade(args.pair, cfg, dry_run=not args.execute)
+        elif args.mode == 'settle':
+            pos = load_position(args.pair)
+            if pos: print(f"\n  {cfg['name']} 持仓:\n    " + "\n    ".join(f"{k}: {v}" for k,v in pos.items()) + "\n")
+            else: print(f"\n  {cfg['name']} 无持仓\n")
     else: p.print_help()
 
 
